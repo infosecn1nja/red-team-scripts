@@ -1,4 +1,4 @@
-# Lockbit Atomic Simulation
+# Lockbit Ransomware Atomic Simulation
 # Author : Rahmat Nurfauzi (@infosecn1nja)
 # Date : 16/05/2023
 # Simulate Lockbit Ransomware tactics, techniques, and procedures (TTP) with atomic red team to validate security controls
@@ -54,7 +54,7 @@ Invoke-AtomicTest T1003.005
 # Atomic Test #5 - Create shortcut to cmd in startup folders
 Invoke-AtomicTest T1547.009 -TestNumbers 2
 
-# Atomic Test #6 - Create shortcut to cmd in startup folders
+# Atomic Test #6 - Scheduled Task Startup Script
 Invoke-AtomicTest T1053.005 -TestNumbers 1
 
 # Atomic Test #7 - WinPwn - UAC Bypass ccmstp technique
