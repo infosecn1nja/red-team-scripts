@@ -101,6 +101,7 @@ Invoke-AtomicTest T1484.001 -TestNumbers 34
 Invoke-AtomicTest T1562.004 -TestNumbers 2
 
 # Atomic Test #20 - Compress Data and lock with password for Exfiltration with 7zip
+Invoke-AtomicTest T1560.001 -TestNumbers 4 -GetPrereqs
 Invoke-AtomicTest T1560.001 -TestNumbers 4
 
 # Atomic Test #21 - Exfiltrate data with rclone to cloud Storage - Mega (Windows)
