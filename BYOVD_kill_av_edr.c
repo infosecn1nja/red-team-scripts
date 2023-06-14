@@ -1,4 +1,4 @@
-// BYOVD_kill_edr.c
+// BYOVD_kill_av_edr.c
 // Author : @infosecn1nja
 // compile : x86_64-w64-mingw32-gcc -o kill_edr.exe kill_edr.c
 
