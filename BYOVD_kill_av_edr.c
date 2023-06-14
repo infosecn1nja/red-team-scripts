@@ -1,6 +1,6 @@
 // BYOVD_kill_av_edr.c
 // Author : @infosecn1nja
-// compile : x86_64-w64-mingw32-gcc -o kill_edr.exe kill_edr.c
+// compile : x86_64-w64-mingw32-gcc -o BYOVD_kill_av_edr.exe BYOVD_kill_av_edr.c
 
 #include <stdio.h>
 #include <stdlib.h>
