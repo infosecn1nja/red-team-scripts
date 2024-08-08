@@ -58,7 +58,6 @@
         repo: 'https://github.com/HavocFramework/Havoc'
         dest: '/opt/Havoc'
         update: yes
-        key_file: "{{ ansible_ssh_private_key_file }}"
       when: not havoc_installed.stat.exists
 
     - name: Remove specific line from http.go
